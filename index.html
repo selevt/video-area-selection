@@ -469,8 +469,8 @@
         
         // Check for saved user preference, if any
         function getColorPreference() {
-            if (localStorage.getItem('theme')) {
-                return localStorage.getItem('theme');
+            if (localStorage.getItem('video-select-area-theme')) {
+                return localStorage.getItem('video-select-area-theme');
             } else {
                 return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
@@ -478,7 +478,7 @@
         
         function setTheme(theme) {
             document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
+            localStorage.setItem('video-select-area-theme', theme);
         }
         
         // Set theme on initial load
@@ -1004,7 +1004,7 @@
         
         // Load saved templates on page load
         function loadTemplates() {
-            const savedTemplates = localStorage.getItem('videoSelectionTemplates');
+            const savedTemplates = localStorage.getItem('video-select-area-templates');
             if (savedTemplates) {
                 templates = JSON.parse(savedTemplates);
                 renderTemplates();
@@ -1013,7 +1013,7 @@
         
         // Save templates to local storage
         function saveTemplates() {
-            localStorage.setItem('videoSelectionTemplates', JSON.stringify(templates));
+            localStorage.setItem('video-select-area-templates', JSON.stringify(templates));
         }
         
         // Render all templates in the list
