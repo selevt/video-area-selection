@@ -12,21 +12,6 @@
             padding: 20px;
         }
         
-        .debug-panel {
-            position: fixed;
-            bottom: 0;
-            right: 0;
-            width: 300px;
-            height: 200px;
-            background-color: rgba(0, 0, 0, 0.8);
-            color: lime;
-            font-family: monospace;
-            padding: 10px;
-            font-size: 12px;
-            overflow-y: auto;
-            z-index: 1000;
-        }
-        
         .drop-area {
             border: 3px dashed #ccc;
             border-radius: 5px;
@@ -209,8 +194,6 @@
             </tr>
         </table>
     </div>
-    
-    <div class="debug-panel" id="debugPanel">Debug Output</div>
 
     <script>
         // DOM elements
@@ -221,7 +204,6 @@
         const selectionOverlay = document.getElementById('selectionOverlay');
         const selectionBox = document.getElementById('selectionBox');
         const coordinatesDiv = document.getElementById('coordinates');
-        const debugPanel = document.getElementById('debugPanel');
         
         // Mode toggle controls
         const playbackModeButton = document.getElementById('playbackMode');
@@ -251,33 +233,6 @@
         let isSelectionMode = false; // Default is playback mode
         let originalVideoWidth, originalVideoHeight;
         let lastMoveEvent = null; // To track mousemove events
-        let dragCounter = 0; // Count mousemove events during drag
-        
-        // Debug functions
-        function debug(message) {
-            const timestamp = new Date().toISOString().substr(11, 8);
-            debugPanel.innerHTML = `[${timestamp}] ${message}<br>` + debugPanel.innerHTML.slice(0, 1500);
-        }
-        
-        function debugState() {
-            debug(`STATE: isSelecting=${isSelecting}, isResizing=${isResizing}, 
-                  position=(${selectionLeft},${selectionTop}), 
-                  size=(${selectionWidth}x${selectionHeight}), 
-                  display=${selectionBox.style.display}`);
-        }
-        
-        // Add a mousemove listener to the document to check if events are firing
-        document.addEventListener('mousemove', function(e) {
-            // Check if we're currently selecting but not receiving overlay events
-            if (isSelecting) {
-                const overlayRect = selectionOverlay.getBoundingClientRect();
-                const inOverlay = e.clientX >= overlayRect.left && e.clientX <= overlayRect.right &&
-                                 e.clientY >= overlayRect.top && e.clientY <= overlayRect.bottom;
-                if (inOverlay && dragCounter === 0) {
-                    debug("WARNING: mousemove on document while selecting, but no overlay events!");
-                }
-            }
-        });
         
         // Load video when file is selected
         function handleFileSelection(file) {
@@ -427,18 +382,14 @@
         // Selection box functionality
         selectionOverlay.addEventListener('mousedown', function(e) {
             e.preventDefault(); // Prevent video play/pause
-            debug("MOUSEDOWN on overlay");
             
             if (videoElement.src && isSelectionMode) {
                 const rect = videoElement.getBoundingClientRect();
                 const mouseX = e.clientX - rect.left;
                 const mouseY = e.clientY - rect.top;
                 
-                debug(`Mouse position: (${mouseX}, ${mouseY}) relative to video`);
-                
                 // Constrain to video boundaries
                 if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
-                    debug("MOUSEDOWN ignored: outside video boundaries");
                     return; // Clicked outside actual video area
                 }
                 
@@ -455,18 +406,13 @@
                     mouseY >= selBoxTop && 
                     mouseY <= selBoxTop + selBoxHeight;
                 
-                debug(`Inside existing selection? ${insideExistingSelection}`);
-                
                 if (!insideExistingSelection) {
                     // Start new selection
                     isSelecting = true;
-                    dragCounter = 0;
                     
                     // Store initial mouse position
                     startX = mouseX;
                     startY = mouseY;
-                    
-                    debug(`Starting selection at (${startX}, ${startY})`);
                     
                     // Start showing the selection box right away with minimal dimensions
                     selectionBox.style.left = startX + 'px';
@@ -482,7 +428,6 @@
                     selectionHeight = 1;
                     
                     updateCoordinates(startX, startY, 1, 1);
-                    debugState();
                     
                     // Critical fix: Listen for mousemove on document during selection
                     // to catch events that might be missed by the overlay
@@ -494,13 +439,10 @@
         selectionOverlay.addEventListener('mousemove', function(e) {
             if (isSelecting && videoElement.src && isSelectionMode) {
                 e.preventDefault();
-                dragCounter++;
                 
                 const rect = videoElement.getBoundingClientRect();
                 const currentX = e.clientX - rect.left;
                 const currentY = e.clientY - rect.top;
-                
-                debug(`MOUSEMOVE #${dragCounter}: (${currentX}, ${currentY}), isSelecting=${isSelecting}`);
                 
                 // Constrain to video boundaries
                 const videoRect = videoElement.getBoundingClientRect();
@@ -512,8 +454,6 @@
                 const height = Math.max(1, Math.abs(constrainedY - startY));
                 const left = Math.min(startX, constrainedX);
                 const top = Math.min(startY, constrainedY);
-                
-                debug(`Calculated dimensions: left=${left}, top=${top}, width=${width}, height=${height}`);
                 
                 // Update selection box styling - already visible from mousedown
                 selectionBox.style.left = left + 'px';
@@ -533,8 +473,6 @@
                 selectionHeight = height;
                 
                 updateCoordinates(left, top, width, height);
-                
-                if (dragCounter % 5 === 0) debugState(); // Log state every 5 moves to reduce spam
             }
             // We no longer handle resizing in the overlay mousemove handler
             // It's now handled by the documentResizeHandler
@@ -542,35 +480,26 @@
         
         selectionOverlay.addEventListener('mouseup', function(e) {
             e.preventDefault();
-            debug("MOUSEUP on overlay");
             
             if (isSelecting) {
-                debug(`Selection ended with ${dragCounter} mousemove events`);
-                
                 // Remove document mousemove handler
                 document.removeEventListener('mousemove', documentMouseMoveHandler);
                 
                 // Process the last move event if it exists
                 // This ensures we capture the final position
                 if (lastMoveEvent) {
-                    debug("Processing final position from lastMoveEvent");
                     const event = new MouseEvent('mousemove', lastMoveEvent);
                     selectionOverlay.dispatchEvent(event);
-                } else {
-                    debug("No lastMoveEvent to process");
                 }
                 
                 isSelecting = false;
-                debugState();
             }
         });
         
         selectionOverlay.addEventListener('mouseleave', function(e) {
             if (isSelecting) {
                 e.preventDefault();
-                debug("MOUSELEAVE while selecting - NOT ending selection, continuing with document events");
                 // We will continue tracking via document events, not ending selection here
-                debugState();
             }
         });
         
@@ -582,8 +511,6 @@
                 e.preventDefault();
                 e.stopPropagation();
                 
-                debug(`MOUSEDOWN on resize handle: ${handle.id}`);
-                
                 isResizing = true;
                 activeHandle = handle;
                 
@@ -592,8 +519,6 @@
                 selectionTop = parseInt(selectionBox.style.top) || 0;
                 selectionWidth = parseInt(selectionBox.style.width) || 0;
                 selectionHeight = parseInt(selectionBox.style.height) || 0;
-                
-                debug(`Starting resize operation from: left=${selectionLeft}, top=${selectionTop}, width=${selectionWidth}, height=${selectionHeight}`);
                 
                 // Add document-level mousemove handler for resizing
                 document.addEventListener('mousemove', documentResizeHandler);
@@ -607,8 +532,6 @@
                 const currentX = e.clientX - rect.left;
                 const currentY = e.clientY - rect.top;
                 
-                debug(`DOCUMENT MOUSEMOVE: (${currentX}, ${currentY}), isSelecting=${isSelecting}`);
-                
                 // Constrain to video boundaries
                 const constrainedX = Math.min(Math.max(0, currentX), rect.width);
                 const constrainedY = Math.min(Math.max(0, currentY), rect.height);
@@ -618,8 +541,6 @@
                 const height = Math.max(1, Math.abs(constrainedY - startY));
                 const left = Math.min(startX, constrainedX);
                 const top = Math.min(startY, constrainedY);
-                
-                debug(`Doc calculated dimensions: left=${left}, top=${top}, width=${width}, height=${height}`);
                 
                 // Update selection box styling
                 selectionBox.style.left = left + 'px';
@@ -651,8 +572,6 @@
                 const rect = videoElement.getBoundingClientRect();
                 const currentX = e.clientX - rect.left;
                 const currentY = e.clientY - rect.top;
-                
-                debug(`RESIZE MOVE: (${currentX}, ${currentY}), handle=${activeHandle.id}`);
                 
                 // Constrain to video boundaries
                 const constrainedX = Math.min(Math.max(0, currentX), rect.width);
@@ -710,8 +629,6 @@
                     }
                 }
                 
-                debug(`New dimensions: left=${newLeft}, top=${newTop}, width=${newWidth}, height=${newHeight}`);
-                
                 // Update selection box styling
                 selectionBox.style.left = newLeft + 'px';
                 selectionBox.style.top = newTop + 'px';
@@ -729,20 +646,15 @@
         }
         
         document.addEventListener('mouseup', function(e) {
-            debug("MOUSEUP on document");
-            
             // Handle resizing end
             if (isResizing) {
-                debug("Ending resize operation");
                 document.removeEventListener('mousemove', documentResizeHandler);
                 isResizing = false;
                 activeHandle = null;
-                debugState();
             }
             
             // Handle selection end if mouse released outside overlay
             if (isSelecting) {
-                debug(`Selection ended outside overlay after ${dragCounter} mousemove events`);
                 isSelecting = false;
                 
                 // Remove document mousemove handler
@@ -750,17 +662,12 @@
                 
                 // Try to process the final position by simulating a mousemove on the overlay
                 if (lastMoveEvent) {
-                    debug("Processing final position from lastMoveEvent (document)");
                     const event = new MouseEvent('mousemove', {
                         clientX: lastMoveEvent.clientX,
                         clientY: lastMoveEvent.clientY
                     });
                     selectionOverlay.dispatchEvent(event);
-                } else {
-                    debug("No lastMoveEvent to process (document)");
                 }
-                
-                debugState();
             }
         });
         
