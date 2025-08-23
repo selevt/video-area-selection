@@ -180,6 +180,14 @@
             background-color: #0056b3;
         }
         
+        .cancel-btn {
+            background-color: #6c757d;
+        }
+        
+        .cancel-btn:hover {
+            background-color: #5a6268;
+        }
+        
         .info-text {
             color: #666;
             margin-bottom: 15px;
@@ -207,6 +215,25 @@
         
         .template-name {
             font-weight: bold;
+        }
+        
+        .template-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .template-edit {
+            background-color: #ffc107;
+            color: #212529;
+            border: none;
+            border-radius: 3px;
+            padding: 3px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .template-edit:hover {
+            background-color: #e0a800;
         }
         
         .template-delete {
@@ -309,6 +336,7 @@
                     <input type="text" id="templateName" placeholder="Template Name" class="template-input">
                     <input type="text" id="templateContent" placeholder="Template (use {left}, {top}, {width}, {height})" class="template-input">
                     <button id="saveTemplate" class="template-btn">Save Template</button>
+                    <button id="cancelEditTemplate" class="template-btn cancel-btn" style="display: none;">Cancel</button>
                 </div>
                 <div class="info-text">
                     <small>Available variables: {left}, {top}, {width}, {height}</small>
@@ -351,6 +379,7 @@
         const templateNameInput = document.getElementById('templateName');
         const templateContentInput = document.getElementById('templateContent');
         const saveTemplateBtn = document.getElementById('saveTemplate');
+        const cancelEditBtn = document.getElementById('cancelEditTemplate');
         const templatesListDiv = document.getElementById('templatesList');
         
         // Variables for selection
@@ -849,7 +878,10 @@
                 templateItem.innerHTML = `
                     <div class="template-header">
                         <span class="template-name">${template.name}</span>
-                        <button class="template-delete" data-index="${index}">Delete</button>
+                        <div class="template-actions">
+                            <button class="template-edit" data-index="${index}">Edit</button>
+                            <button class="template-delete" data-index="${index}">Delete</button>
+                        </div>
                     </div>
                     <div class="template-output">${templateOutput}</div>
                     <button class="copy-btn" data-output="${encodeURIComponent(templateOutput)}">Copy to Clipboard</button>
@@ -865,6 +897,29 @@
                     templates.splice(index, 1);
                     saveTemplates();
                     renderTemplates();
+                });
+            });
+            
+            // Add event listeners for edit buttons
+            document.querySelectorAll('.template-edit').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    const template = templates[index];
+                    
+                    // Populate form with template data
+                    templateNameInput.value = template.name;
+                    templateContentInput.value = template.content;
+                    
+                    // Change save button to update button
+                    saveTemplateBtn.textContent = 'Update Template';
+                    saveTemplateBtn.dataset.editIndex = index;
+                    
+                    // Show cancel button
+                    cancelEditBtn.style.display = 'inline-block';
+                    
+                    // Scroll to the form
+                    templateNameInput.scrollIntoView({ behavior: 'smooth' });
+                    templateNameInput.focus();
                 });
             });
             
@@ -903,7 +958,21 @@
             );
         }
         
-        // Save template button handler
+        // Cancel edit button handler
+        cancelEditBtn.addEventListener('click', function() {
+            // Clear form
+            templateNameInput.value = '';
+            templateContentInput.value = '';
+            
+            // Reset save button
+            saveTemplateBtn.textContent = 'Save Template';
+            delete saveTemplateBtn.dataset.editIndex;
+            
+            // Hide cancel button
+            cancelEditBtn.style.display = 'none';
+        });
+        
+        // Save/Update template button handler
         saveTemplateBtn.addEventListener('click', function() {
             const name = templateNameInput.value.trim();
             const content = templateContentInput.value.trim();
@@ -918,10 +987,28 @@
                 return;
             }
             
-            templates.push({
-                name: name,
-                content: content
-            });
+            // Check if we're editing an existing template
+            const editIndex = this.dataset.editIndex;
+            
+            if (editIndex !== undefined) {
+                // Update existing template
+                templates[editIndex] = {
+                    name: name,
+                    content: content
+                };
+                // Remove edit index from button
+                delete this.dataset.editIndex;
+                // Restore button text
+                this.textContent = 'Save Template';
+                // Hide cancel button
+                cancelEditBtn.style.display = 'none';
+            } else {
+                // Add new template
+                templates.push({
+                    name: name,
+                    content: content
+                });
+            }
             
             saveTemplates();
             renderTemplates();
