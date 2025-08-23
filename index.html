@@ -1018,10 +1018,15 @@
         
         // Render all templates in the list
         function renderTemplates() {
-            templatesListDiv.innerHTML = '';
+            // Clear existing templates
+            while (templatesListDiv.firstChild) {
+                templatesListDiv.removeChild(templatesListDiv.firstChild);
+            }
             
             if (templates.length === 0) {
-                templatesListDiv.innerHTML = '<p>No templates yet. Create one below!</p>';
+                const noTemplatesMsg = document.createElement('p');
+                noTemplatesMsg.textContent = 'No templates yet. Create one below!';
+                templatesListDiv.appendChild(noTemplatesMsg);
                 return;
             }
             
@@ -1030,19 +1035,57 @@
                 
                 const templateItem = document.createElement('div');
                 templateItem.className = 'template-item';
-                templateItem.innerHTML = `
-                    <div class="template-header">
-                        <span class="template-name">${template.name}</span>
-                        <div class="template-actions">
-                            <button class="template-edit" data-index="${index}">Edit</button>
-                            <button class="template-delete" data-index="${index}">Delete</button>
-                        </div>
-                    </div>
-                    <div class="template-output-row">
-                        <div class="template-output">${templateOutput}</div>
-                        <button class="copy-btn" data-output="${encodeURIComponent(templateOutput)}">Copy</button>
-                    </div>
-                `;
+                
+                // Create header
+                const templateHeader = document.createElement('div');
+                templateHeader.className = 'template-header';
+                
+                // Create name span
+                const templateName = document.createElement('span');
+                templateName.className = 'template-name';
+                templateName.textContent = template.name;
+                templateHeader.appendChild(templateName);
+                
+                // Create actions container
+                const templateActions = document.createElement('div');
+                templateActions.className = 'template-actions';
+                
+                // Create edit button
+                const editButton = document.createElement('button');
+                editButton.className = 'template-edit';
+                editButton.setAttribute('data-index', index);
+                editButton.textContent = 'Edit';
+                templateActions.appendChild(editButton);
+                
+                // Create delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'template-delete';
+                deleteButton.setAttribute('data-index', index);
+                deleteButton.textContent = 'Delete';
+                templateActions.appendChild(deleteButton);
+                
+                templateHeader.appendChild(templateActions);
+                templateItem.appendChild(templateHeader);
+                
+                // Create output row
+                const templateOutputRow = document.createElement('div');
+                templateOutputRow.className = 'template-output-row';
+                
+                // Create output div - we use textContent to ensure XSS safety
+                // while still displaying the original template content
+                const outputDiv = document.createElement('div');
+                outputDiv.className = 'template-output';
+                outputDiv.textContent = templateOutput; // This displays the raw content safely
+                templateOutputRow.appendChild(outputDiv);
+                
+                // Create copy button - using encodeURIComponent to safely store the raw template output
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-btn';
+                copyButton.setAttribute('data-output', encodeURIComponent(templateOutput));
+                copyButton.textContent = 'Copy';
+                templateOutputRow.appendChild(copyButton);
+                
+                templateItem.appendChild(templateOutputRow);
                 
                 templatesListDiv.appendChild(templateItem);
             });
@@ -1063,7 +1106,7 @@
                     const index = parseInt(this.getAttribute('data-index'));
                     const template = templates[index];
                     
-                    // Populate form with template data
+                    // Populate form with template data - these are input elements so they're safe
                     templateNameInput.value = template.name;
                     templateContentInput.value = template.content;
                     
@@ -1083,6 +1126,7 @@
             // Add event listeners for copy buttons
             document.querySelectorAll('.copy-btn').forEach(button => {
                 button.addEventListener('click', function() {
+                    // Decode the URI component to get back the original string
                     const output = decodeURIComponent(this.getAttribute('data-output'));
                     copyToClipboard(output);
                 });
@@ -1101,12 +1145,14 @@
         // Copy text to clipboard
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(
-                function() {
+                function(e) {
+                    // Get the button that was clicked
+                    const clickedButton = document.activeElement;
                     // Success feedback
-                    const originalText = event.target.textContent;
-                    event.target.textContent = "Copied!";
+                    const originalText = clickedButton.textContent;
+                    clickedButton.textContent = "Copied!";
                     setTimeout(() => {
-                        event.target.textContent = originalText;
+                        clickedButton.textContent = originalText;
                     }, 1000);
                 },
                 function() {
