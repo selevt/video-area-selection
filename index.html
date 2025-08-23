@@ -142,6 +142,111 @@
         .file-input {
             display: none;
         }
+        
+        /* Template System Styles */
+        .template-system {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        
+        .template-form {
+            margin-bottom: 15px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .template-input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            flex-grow: 1;
+        }
+        
+        .template-btn {
+            padding: 8px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .template-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        .info-text {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .templates-list {
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+        
+        .template-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #eee;
+        }
+        
+        .template-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .template-name {
+            font-weight: bold;
+        }
+        
+        .template-delete {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 3px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .template-delete:hover {
+            background-color: #c82333;
+        }
+        
+        .template-output {
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: white;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .copy-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .copy-btn:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
 <body>
@@ -176,29 +281,44 @@
         <table>
             <tr>
                 <th>Property</th>
-                <th>Display Value</th>
-                <th>Original Video Value</th>
+                <th>Value</th>
             </tr>
             <tr>
                 <td>Top-Left Position (X, Y)</td>
-                <td id="displayPosition">-</td>
                 <td id="originalPosition">-</td>
             </tr>
             <tr>
                 <td>Width</td>
-                <td id="displayWidth">-</td>
                 <td id="originalWidth">-</td>
             </tr>
             <tr>
                 <td>Height</td>
-                <td id="displayHeight">-</td>
                 <td id="originalHeight">-</td>
             </tr>
             <tr>
                 <td>Video Resolution</td>
-                <td colspan="2" id="videoResolution">-</td>
+                <td id="videoResolution">-</td>
             </tr>
         </table>
+        
+        <div class="template-system">
+            <h3>Templates</h3>
+            
+            <div class="template-form">
+                <div class="form-row">
+                    <input type="text" id="templateName" placeholder="Template Name" class="template-input">
+                    <input type="text" id="templateContent" placeholder="Template (use {left}, {top}, {width}, {height})" class="template-input">
+                    <button id="saveTemplate" class="template-btn">Save Template</button>
+                </div>
+                <div class="info-text">
+                    <small>Available variables: {left}, {top}, {width}, {height}</small>
+                </div>
+            </div>
+            
+            <div id="templatesList" class="templates-list">
+                <!-- Templates will be added here dynamically -->
+            </div>
+        </div>
     </div>
 
     <script>
@@ -222,13 +342,16 @@
         const handleSE = document.getElementById('handleSE');
         
         // Display elements
-        const displayPosition = document.getElementById('displayPosition');
-        const displayWidth = document.getElementById('displayWidth');
-        const displayHeight = document.getElementById('displayHeight');
         const originalPosition = document.getElementById('originalPosition');
         const originalWidth = document.getElementById('originalWidth');
         const originalHeight = document.getElementById('originalHeight');
         const videoResolution = document.getElementById('videoResolution');
+        
+        // Template system elements
+        const templateNameInput = document.getElementById('templateName');
+        const templateContentInput = document.getElementById('templateContent');
+        const saveTemplateBtn = document.getElementById('saveTemplate');
+        const templatesListDiv = document.getElementById('templatesList');
         
         // Variables for selection
         let isSelecting = false;
@@ -360,6 +483,11 @@
         
         // Key controls for video navigation (work in both modes)
         document.addEventListener('keydown', function(e) {
+            // Skip if the target is an input element or textarea
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
             if (videoElement.src) {
                 if (e.code === 'Space') {
                     // Space bar for play/pause
@@ -681,12 +809,132 @@
             }
         });
         
-        function updateCoordinates(x, y, width, height) {
-            // Display values (what you see on screen)
-            displayPosition.textContent = `(${Math.round(x)}, ${Math.round(y)})`;
-            displayWidth.textContent = `${Math.round(width)}px`;
-            displayHeight.textContent = `${Math.round(height)}px`;
+        // Template system variables and functions
+        let templates = [];
+        let currentSelectionValues = {
+            left: 0,
+            top: 0,
+            width: 0,
+            height: 0
+        };
+        
+        // Load saved templates on page load
+        function loadTemplates() {
+            const savedTemplates = localStorage.getItem('videoSelectionTemplates');
+            if (savedTemplates) {
+                templates = JSON.parse(savedTemplates);
+                renderTemplates();
+            }
+        }
+        
+        // Save templates to local storage
+        function saveTemplates() {
+            localStorage.setItem('videoSelectionTemplates', JSON.stringify(templates));
+        }
+        
+        // Render all templates in the list
+        function renderTemplates() {
+            templatesListDiv.innerHTML = '';
             
+            if (templates.length === 0) {
+                templatesListDiv.innerHTML = '<p>No templates yet. Create one above!</p>';
+                return;
+            }
+            
+            templates.forEach((template, index) => {
+                const templateOutput = applyTemplate(template.content);
+                
+                const templateItem = document.createElement('div');
+                templateItem.className = 'template-item';
+                templateItem.innerHTML = `
+                    <div class="template-header">
+                        <span class="template-name">${template.name}</span>
+                        <button class="template-delete" data-index="${index}">Delete</button>
+                    </div>
+                    <div class="template-output">${templateOutput}</div>
+                    <button class="copy-btn" data-output="${encodeURIComponent(templateOutput)}">Copy to Clipboard</button>
+                `;
+                
+                templatesListDiv.appendChild(templateItem);
+            });
+            
+            // Add event listeners for delete buttons
+            document.querySelectorAll('.template-delete').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    templates.splice(index, 1);
+                    saveTemplates();
+                    renderTemplates();
+                });
+            });
+            
+            // Add event listeners for copy buttons
+            document.querySelectorAll('.copy-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const output = decodeURIComponent(this.getAttribute('data-output'));
+                    copyToClipboard(output);
+                });
+            });
+        }
+        
+        // Apply template with current selection values
+        function applyTemplate(templateContent) {
+            return templateContent
+                .replace(/\{left\}/g, currentSelectionValues.left)
+                .replace(/\{top\}/g, currentSelectionValues.top)
+                .replace(/\{width\}/g, currentSelectionValues.width)
+                .replace(/\{height\}/g, currentSelectionValues.height);
+        }
+        
+        // Copy text to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(
+                function() {
+                    // Success feedback
+                    const originalText = event.target.textContent;
+                    event.target.textContent = "Copied!";
+                    setTimeout(() => {
+                        event.target.textContent = originalText;
+                    }, 1000);
+                },
+                function() {
+                    alert("Failed to copy to clipboard");
+                }
+            );
+        }
+        
+        // Save template button handler
+        saveTemplateBtn.addEventListener('click', function() {
+            const name = templateNameInput.value.trim();
+            const content = templateContentInput.value.trim();
+            
+            if (!name) {
+                alert("Please provide a template name");
+                return;
+            }
+            
+            if (!content) {
+                alert("Please provide template content");
+                return;
+            }
+            
+            templates.push({
+                name: name,
+                content: content
+            });
+            
+            saveTemplates();
+            renderTemplates();
+            
+            // Clear inputs
+            templateNameInput.value = '';
+            templateContentInput.value = '';
+        });
+        
+        // Initialize templates on page load
+        loadTemplates();
+        
+        function updateCoordinates(x, y, width, height) {
             // Convert to original video dimensions
             if (videoElement.src && originalVideoWidth && originalVideoHeight) {
                 // Calculate scale factors based on the actual displayed video size
@@ -716,6 +964,17 @@
                     originalPosition.textContent = `(${originalX}, ${originalY})`;
                     originalWidth.textContent = `${originalW}px`;
                     originalHeight.textContent = `${originalH}px`;
+                    
+                    // Update current selection values for templates
+                    currentSelectionValues = {
+                        left: originalX,
+                        top: originalY,
+                        width: originalW,
+                        height: originalH
+                    };
+                    
+                    // Update all template outputs with new values
+                    renderTemplates();
                 }
             }
         }
