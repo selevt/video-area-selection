@@ -124,15 +124,19 @@
             display: none;
         }
         
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .compact-coords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
         }
         
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
+        .coord-item {
+            font-weight: bold;
+        }
+        
+        .coord-item span {
+            font-weight: normal;
         }
         
         th {
@@ -196,11 +200,12 @@
         .templates-list {
             border-top: 1px solid #eee;
             padding-top: 10px;
+            margin-bottom: 15px;
         }
         
         .template-item {
-            margin-bottom: 15px;
-            padding: 10px;
+            margin-bottom: 12px;
+            padding: 8px;
             background-color: #f9f9f9;
             border-radius: 5px;
             border: 1px solid #eee;
@@ -210,7 +215,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         
         .template-name {
@@ -250,25 +255,35 @@
             background-color: #c82333;
         }
         
+        .template-output-row {
+            display: flex;
+            margin-bottom: 5px;
+            align-items: stretch;
+        }
+        
         .template-output {
             border: 1px solid #ddd;
             padding: 10px;
             background-color: white;
-            border-radius: 3px;
-            margin-bottom: 5px;
+            border-radius: 3px 0 0 3px;
             font-family: monospace;
             white-space: pre-wrap;
             word-break: break-all;
+            flex-grow: 1;
         }
         
         .copy-btn {
             background-color: #28a745;
             color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 0 3px 3px 0;
             padding: 5px 10px;
             cursor: pointer;
             font-size: 14px;
+            margin-left: -1px; /* To avoid double border */
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
         }
         
         .copy-btn:hover {
@@ -304,32 +319,17 @@
     </div>
     
     <div class="coordinates" id="coordinates">
-        <h3>Selection Coordinates (Original Video Resolution)</h3>
-        <table>
-            <tr>
-                <th>Property</th>
-                <th>Value</th>
-            </tr>
-            <tr>
-                <td>Top-Left Position (X, Y)</td>
-                <td id="originalPosition">-</td>
-            </tr>
-            <tr>
-                <td>Width</td>
-                <td id="originalWidth">-</td>
-            </tr>
-            <tr>
-                <td>Height</td>
-                <td id="originalHeight">-</td>
-            </tr>
-            <tr>
-                <td>Video Resolution</td>
-                <td id="videoResolution">-</td>
-            </tr>
-        </table>
+        <h3>Selection Coordinates</h3>
+        <div class="compact-coords">
+            <div class="coord-item">Position: <span id="originalPosition">-</span></div>
+            <div class="coord-item">Size: <span id="originalWidth">-</span> × <span id="originalHeight">-</span></div>
+            <div class="coord-item">Video: <span id="videoResolution">-</span></div>
+        </div>
         
         <div class="template-system">
-            <h3>Templates</h3>
+            <div id="templatesList" class="templates-list">
+                <!-- Templates will be added here dynamically -->
+            </div>
             
             <div class="template-form">
                 <div class="form-row">
@@ -341,10 +341,6 @@
                 <div class="info-text">
                     <small>Available variables: {left}, {top}, {width}, {height}</small>
                 </div>
-            </div>
-            
-            <div id="templatesList" class="templates-list">
-                <!-- Templates will be added here dynamically -->
             </div>
         </div>
     </div>
@@ -866,7 +862,7 @@
             templatesListDiv.innerHTML = '';
             
             if (templates.length === 0) {
-                templatesListDiv.innerHTML = '<p>No templates yet. Create one above!</p>';
+                templatesListDiv.innerHTML = '<p>No templates yet. Create one below!</p>';
                 return;
             }
             
@@ -883,8 +879,10 @@
                             <button class="template-delete" data-index="${index}">Delete</button>
                         </div>
                     </div>
-                    <div class="template-output">${templateOutput}</div>
-                    <button class="copy-btn" data-output="${encodeURIComponent(templateOutput)}">Copy to Clipboard</button>
+                    <div class="template-output-row">
+                        <div class="template-output">${templateOutput}</div>
+                        <button class="copy-btn" data-output="${encodeURIComponent(templateOutput)}">Copy</button>
+                    </div>
                 `;
                 
                 templatesListDiv.appendChild(templateItem);
@@ -1049,8 +1047,8 @@
                     
                     // Update display
                     originalPosition.textContent = `(${originalX}, ${originalY})`;
-                    originalWidth.textContent = `${originalW}px`;
-                    originalHeight.textContent = `${originalH}px`;
+                    originalWidth.textContent = `${originalW}`;
+                    originalHeight.textContent = `${originalH}`;
                     
                     // Update current selection values for templates
                     currentSelectionValues = {
