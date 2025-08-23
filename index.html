@@ -74,6 +74,12 @@
             z-index: 20; /* Above overlay but below handles */
         }
         
+        .selection-box.playback-mode {
+            opacity: 0.4; /* Fade out in playback mode */
+            pointer-events: none; /* Disable interaction in playback mode */
+            border: 2px dashed red; /* Dashed border to indicate it's not interactive */
+        }
+        
         .resize-handle {
             position: absolute;
             width: 10px;
@@ -318,6 +324,11 @@
             playbackModeButton.classList.add('active');
             selectionModeButton.classList.remove('active');
             videoElement.controls = true;
+            
+            // Make selection box non-interactive but still visible if it exists
+            if (selectionBox.style.display === 'block') {
+                selectionBox.classList.add('playback-mode');
+            }
         });
         
         selectionModeButton.addEventListener('click', function() {
@@ -330,19 +341,18 @@
             selectionModeButton.classList.add('active');
             playbackModeButton.classList.remove('active');
             videoElement.controls = false; // Hide video controls in selection mode
+            
+            // Keep the selection box if it exists and make it fully interactive again
+            if (selectionBox.style.display === 'block') {
+                selectionBox.classList.remove('playback-mode');
+            }
         });
         
         // Helper function to ensure overlay matches video size
         function updateSelectionOverlaySize() {
-            // We're using absolute positioning, but we still need to
-            // make sure selection box is reset when video size changes
-            if (selectionBox.style.display === 'block') {
-                // Reset selection if video size changed significantly
-                selectionBox.style.display = 'none';
-            }
-            
             // Since we're using a layout that automatically sizes the overlay
-            // with the video, we don't need to manually set dimensions
+            // with the video, we don't need to manually set dimensions.
+            // We no longer reset the selection box when the video size changes.
         }
         
         // Make sure overlay stays aligned with video when window resizes
