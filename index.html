@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Area Selection Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .debug-panel {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 300px;
+            height: 200px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: lime;
+            font-family: monospace;
+            padding: 10px;
+            font-size: 12px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .drop-area {
+            border: 3px dashed #ccc;
+            border-radius: 5px;
+            padding: 50px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .drop-area:hover, .drop-area.dragover {
+            background-color: #f5f5f5;
+        }
+        
+        .video-container {
+            position: relative;
+            margin-bottom: 20px;
+            display: none; /* Hidden by default until video is loaded */
+        }
+        
+        video {
+            max-width: 100%;
+            max-height: 70vh;
+            display: block;
+            margin: 0 auto; /* Center the video */
+        }
+        
+        .video-wrapper {
+            position: relative; /* Container for video and overlay */
+            display: inline-block; /* Shrink to fit video size */
+            margin: 0 auto;
+            line-height: 0; /* Remove extra space below inline element */
+        }
+        
+        .video-outer-container {
+            text-align: center; /* Center the video wrapper */
+        }
+        
+        .selection-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            cursor: crosshair;
+            display: none; /* Hidden by default, shown when in selection mode */
+            z-index: 10; /* Ensure overlay is above video but below handles */
+            user-select: none; /* Prevent text selection while dragging */
+        }
+        
+        .selecting {
+            cursor: crosshair !important; /* Force crosshair cursor when selecting */
+        }
+        
+        .selection-box {
+            position: absolute;
+            border: 2px solid red;
+            background-color: rgba(255, 0, 0, 0.2);
+            display: none;
+            z-index: 20; /* Above overlay but below handles */
+        }
+        
+        .resize-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: white;
+            border: 1px solid red;
+            z-index: 30; /* Ensure handles are always on top */
+        }
+        
+        .handle-nw { cursor: nw-resize; top: -5px; left: -5px; }
+        .handle-ne { cursor: ne-resize; top: -5px; right: -5px; }
+        .handle-sw { cursor: sw-resize; bottom: -5px; left: -5px; }
+        .handle-se { cursor: se-resize; bottom: -5px; right: -5px; }
+        
+        .mode-controls {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .mode-toggle {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        
+        .mode-toggle.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #0056b3;
+        }
+        
+        .coordinates {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        .file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Area Selection Tool</h1>
+    
+    <div class="drop-area" id="dropArea">
+        <p>Drag & drop your video file here or click to select</p>
+        <input type="file" id="fileInput" class="file-input" accept="video/*">
+    </div>
+    
+    <div class="video-container" id="videoContainer">
+        <div class="mode-controls">
+            <div id="playbackMode" class="mode-toggle active">Video Playback Mode</div>
+            <div id="selectionMode" class="mode-toggle">Selection Mode</div>
+        </div>
+        <div class="video-outer-container">
+            <div class="video-wrapper">
+                <video id="videoElement" controls></video>
+                <div class="selection-overlay" id="selectionOverlay"></div>
+                <div class="selection-box" id="selectionBox">
+                    <div class="resize-handle handle-nw" id="handleNW"></div>
+                    <div class="resize-handle handle-ne" id="handleNE"></div>
+                    <div class="resize-handle handle-sw" id="handleSW"></div>
+                    <div class="resize-handle handle-se" id="handleSE"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="coordinates" id="coordinates">
+        <h3>Selection Coordinates (Original Video Resolution)</h3>
+        <table>
+            <tr>
+                <th>Property</th>
+                <th>Display Value</th>
+                <th>Original Video Value</th>
+            </tr>
+            <tr>
+                <td>Top-Left Position (X, Y)</td>
+                <td id="displayPosition">-</td>
+                <td id="originalPosition">-</td>
+            </tr>
+            <tr>
+                <td>Width</td>
+                <td id="displayWidth">-</td>
+                <td id="originalWidth">-</td>
+            </tr>
+            <tr>
+                <td>Height</td>
+                <td id="displayHeight">-</td>
+                <td id="originalHeight">-</td>
+            </tr>
+            <tr>
+                <td>Video Resolution</td>
+                <td colspan="2" id="videoResolution">-</td>
+            </tr>
+        </table>
+    </div>
+    
+    <div class="debug-panel" id="debugPanel">Debug Output</div>
+
+    <script>
+        // DOM elements
+        const dropArea = document.getElementById('dropArea');
+        const fileInput = document.getElementById('fileInput');
+        const videoContainer = document.getElementById('videoContainer');
+        const videoElement = document.getElementById('videoElement');
+        const selectionOverlay = document.getElementById('selectionOverlay');
+        const selectionBox = document.getElementById('selectionBox');
+        const coordinatesDiv = document.getElementById('coordinates');
+        const debugPanel = document.getElementById('debugPanel');
+        
+        // Mode toggle controls
+        const playbackModeButton = document.getElementById('playbackMode');
+        const selectionModeButton = document.getElementById('selectionMode');
+        
+        // Resize handles
+        const handleNW = document.getElementById('handleNW');
+        const handleNE = document.getElementById('handleNE');
+        const handleSW = document.getElementById('handleSW');
+        const handleSE = document.getElementById('handleSE');
+        
+        // Display elements
+        const displayPosition = document.getElementById('displayPosition');
+        const displayWidth = document.getElementById('displayWidth');
+        const displayHeight = document.getElementById('displayHeight');
+        const originalPosition = document.getElementById('originalPosition');
+        const originalWidth = document.getElementById('originalWidth');
+        const originalHeight = document.getElementById('originalHeight');
+        const videoResolution = document.getElementById('videoResolution');
+        
+        // Variables for selection
+        let isSelecting = false;
+        let isResizing = false;
+        let activeHandle = null;
+        let startX, startY;
+        let selectionLeft, selectionTop, selectionWidth, selectionHeight;
+        let isSelectionMode = false; // Default is playback mode
+        let originalVideoWidth, originalVideoHeight;
+        let lastMoveEvent = null; // To track mousemove events
+        let dragCounter = 0; // Count mousemove events during drag
+        
+        // Debug functions
+        function debug(message) {
+            const timestamp = new Date().toISOString().substr(11, 8);
+            debugPanel.innerHTML = `[${timestamp}] ${message}<br>` + debugPanel.innerHTML.slice(0, 1500);
+        }
+        
+        function debugState() {
+            debug(`STATE: isSelecting=${isSelecting}, isResizing=${isResizing}, 
+                  position=(${selectionLeft},${selectionTop}), 
+                  size=(${selectionWidth}x${selectionHeight}), 
+                  display=${selectionBox.style.display}`);
+        }
+        
+        // Add a mousemove listener to the document to check if events are firing
+        document.addEventListener('mousemove', function(e) {
+            // Check if we're currently selecting but not receiving overlay events
+            if (isSelecting) {
+                const overlayRect = selectionOverlay.getBoundingClientRect();
+                const inOverlay = e.clientX >= overlayRect.left && e.clientX <= overlayRect.right &&
+                                 e.clientY >= overlayRect.top && e.clientY <= overlayRect.bottom;
+                if (inOverlay && dragCounter === 0) {
+                    debug("WARNING: mousemove on document while selecting, but no overlay events!");
+                }
+            }
+        });
+        
+        // Load video when file is selected
+        function handleFileSelection(file) {
+            if (file && file.type.startsWith('video/')) {
+                const videoURL = URL.createObjectURL(file);
+                videoElement.src = videoURL;
+                
+                videoElement.onloadedmetadata = function() {
+                    // Store original video dimensions
+                    originalVideoWidth = videoElement.videoWidth;
+                    originalVideoHeight = videoElement.videoHeight;
+                    
+                    // Display video resolution
+                    videoResolution.textContent = `${originalVideoWidth} × ${originalVideoHeight}`;
+                    
+                    // Show video container and coordinates section
+                    videoContainer.style.display = 'block';
+                    coordinatesDiv.style.display = 'block';
+                    
+                    // Set overlay to match video size
+                    updateSelectionOverlaySize();
+                };
+                
+                // Video loaded, show video and hide drop area
+                dropArea.style.display = 'none';
+            } else {
+                alert('Please select a valid video file.');
+            }
+        }
+        
+        // Event listeners for drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            dropArea.classList.add('dragover');
+        }
+        
+        function unhighlight() {
+            dropArea.classList.remove('dragover');
+        }
+        
+        dropArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const file = dt.files[0];
+            handleFileSelection(file);
+        }
+        
+        // Click to select file
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFileSelection(this.files[0]);
+            }
+        });
+        
+        // Mode toggle functionality
+        playbackModeButton.addEventListener('click', function() {
+            if (!isSelectionMode) return; // Already in playback mode
+            
+            // Switch to playback mode
+            isSelectionMode = false;
+            selectionOverlay.style.display = 'none';
+            playbackModeButton.classList.add('active');
+            selectionModeButton.classList.remove('active');
+            videoElement.controls = true;
+        });
+        
+        selectionModeButton.addEventListener('click', function() {
+            if (isSelectionMode) return; // Already in selection mode
+            
+            // Switch to selection mode
+            isSelectionMode = true;
+            updateSelectionOverlaySize();
+            selectionOverlay.style.display = 'block';
+            selectionModeButton.classList.add('active');
+            playbackModeButton.classList.remove('active');
+            videoElement.controls = false; // Hide video controls in selection mode
+        });
+        
+        // Helper function to ensure overlay matches video size
+        function updateSelectionOverlaySize() {
+            // We're using absolute positioning, but we still need to
+            // make sure selection box is reset when video size changes
+            if (selectionBox.style.display === 'block') {
+                // Reset selection if video size changed significantly
+                selectionBox.style.display = 'none';
+            }
+            
+            // Since we're using a layout that automatically sizes the overlay
+            // with the video, we don't need to manually set dimensions
+        }
+        
+        // Make sure overlay stays aligned with video when window resizes
+        window.addEventListener('resize', updateSelectionOverlaySize);
+        
+        // Key controls for video navigation (work in both modes)
+        document.addEventListener('keydown', function(e) {
+            if (videoElement.src) {
+                if (e.code === 'Space') {
+                    // Space bar for play/pause
+                    e.preventDefault();
+                    if (videoElement.paused) {
+                        videoElement.play();
+                    } else {
+                        videoElement.pause();
+                    }
+                } else if (e.code === 'ArrowLeft') {
+                    // Left arrow for step back
+                    e.preventDefault();
+                    videoElement.currentTime = Math.max(0, videoElement.currentTime - (e.shiftKey ? 1 : 0.04));
+                } else if (e.code === 'ArrowRight') {
+                    // Right arrow for step forward
+                    e.preventDefault();
+                    videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + (e.shiftKey ? 1 : 0.04));
+                } else if (e.code === 'KeyM') {
+                    // M key to toggle between modes
+                    e.preventDefault();
+                    if (isSelectionMode) {
+                        playbackModeButton.click();
+                    } else {
+                        selectionModeButton.click();
+                    }
+                }
+            }
+        });
+        
+        // Selection box functionality
+        selectionOverlay.addEventListener('mousedown', function(e) {
+            e.preventDefault(); // Prevent video play/pause
+            debug("MOUSEDOWN on overlay");
+            
+            if (videoElement.src && isSelectionMode) {
+                const rect = videoElement.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                debug(`Mouse position: (${mouseX}, ${mouseY}) relative to video`);
+                
+                // Constrain to video boundaries
+                if (mouseX < 0 || mouseX > rect.width || mouseY < 0 || mouseY > rect.height) {
+                    debug("MOUSEDOWN ignored: outside video boundaries");
+                    return; // Clicked outside actual video area
+                }
+                
+                // Check if we're clicking inside an existing selection
+                const selBoxLeft = parseInt(selectionBox.style.left) || 0;
+                const selBoxTop = parseInt(selectionBox.style.top) || 0;
+                const selBoxWidth = parseInt(selectionBox.style.width) || 0;
+                const selBoxHeight = parseInt(selectionBox.style.height) || 0;
+                
+                const insideExistingSelection = 
+                    selectionBox.style.display === 'block' &&
+                    mouseX >= selBoxLeft && 
+                    mouseX <= selBoxLeft + selBoxWidth && 
+                    mouseY >= selBoxTop && 
+                    mouseY <= selBoxTop + selBoxHeight;
+                
+                debug(`Inside existing selection? ${insideExistingSelection}`);
+                
+                if (!insideExistingSelection) {
+                    // Start new selection
+                    isSelecting = true;
+                    dragCounter = 0;
+                    
+                    // Store initial mouse position
+                    startX = mouseX;
+                    startY = mouseY;
+                    
+                    debug(`Starting selection at (${startX}, ${startY})`);
+                    
+                    // Start showing the selection box right away with minimal dimensions
+                    selectionBox.style.left = startX + 'px';
+                    selectionBox.style.top = startY + 'px';
+                    selectionBox.style.width = '1px';
+                    selectionBox.style.height = '1px';
+                    selectionBox.style.display = 'block';
+                    
+                    // Track the current values
+                    selectionLeft = startX;
+                    selectionTop = startY;
+                    selectionWidth = 1;
+                    selectionHeight = 1;
+                    
+                    updateCoordinates(startX, startY, 1, 1);
+                    debugState();
+                    
+                    // Critical fix: Listen for mousemove on document during selection
+                    // to catch events that might be missed by the overlay
+                    document.addEventListener('mousemove', documentMouseMoveHandler);
+                }
+            }
+        });
+        
+        selectionOverlay.addEventListener('mousemove', function(e) {
+            if (isSelecting && videoElement.src && isSelectionMode) {
+                e.preventDefault();
+                dragCounter++;
+                
+                const rect = videoElement.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                debug(`MOUSEMOVE #${dragCounter}: (${currentX}, ${currentY}), isSelecting=${isSelecting}`);
+                
+                // Constrain to video boundaries
+                const videoRect = videoElement.getBoundingClientRect();
+                const constrainedX = Math.min(Math.max(0, currentX), videoRect.width);
+                const constrainedY = Math.min(Math.max(0, currentY), videoRect.height);
+                
+                // Calculate dimensions and position of selection box
+                const width = Math.max(1, Math.abs(constrainedX - startX));
+                const height = Math.max(1, Math.abs(constrainedY - startY));
+                const left = Math.min(startX, constrainedX);
+                const top = Math.min(startY, constrainedY);
+                
+                debug(`Calculated dimensions: left=${left}, top=${top}, width=${width}, height=${height}`);
+                
+                // Update selection box styling - already visible from mousedown
+                selectionBox.style.left = left + 'px';
+                selectionBox.style.top = top + 'px';
+                selectionBox.style.width = width + 'px';
+                selectionBox.style.height = height + 'px';
+                
+                // Store this event to reuse in case we need it on mouseup
+                lastMoveEvent = {
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                };
+                
+                selectionLeft = left;
+                selectionTop = top;
+                selectionWidth = width;
+                selectionHeight = height;
+                
+                updateCoordinates(left, top, width, height);
+                
+                if (dragCounter % 5 === 0) debugState(); // Log state every 5 moves to reduce spam
+            }
+            // We no longer handle resizing in the overlay mousemove handler
+            // It's now handled by the documentResizeHandler
+        });
+        
+        selectionOverlay.addEventListener('mouseup', function(e) {
+            e.preventDefault();
+            debug("MOUSEUP on overlay");
+            
+            if (isSelecting) {
+                debug(`Selection ended with ${dragCounter} mousemove events`);
+                
+                // Remove document mousemove handler
+                document.removeEventListener('mousemove', documentMouseMoveHandler);
+                
+                // Process the last move event if it exists
+                // This ensures we capture the final position
+                if (lastMoveEvent) {
+                    debug("Processing final position from lastMoveEvent");
+                    const event = new MouseEvent('mousemove', lastMoveEvent);
+                    selectionOverlay.dispatchEvent(event);
+                } else {
+                    debug("No lastMoveEvent to process");
+                }
+                
+                isSelecting = false;
+                debugState();
+            }
+        });
+        
+        selectionOverlay.addEventListener('mouseleave', function(e) {
+            if (isSelecting) {
+                e.preventDefault();
+                debug("MOUSELEAVE while selecting - NOT ending selection, continuing with document events");
+                // We will continue tracking via document events, not ending selection here
+                debugState();
+            }
+        });
+        
+        // Resize handle events
+        [handleNW, handleNE, handleSW, handleSE].forEach(handle => {
+            handle.addEventListener('mousedown', function(e) {
+                if (!isSelectionMode) return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                debug(`MOUSEDOWN on resize handle: ${handle.id}`);
+                
+                isResizing = true;
+                activeHandle = handle;
+                
+                // Store current selection dimensions
+                selectionLeft = parseInt(selectionBox.style.left) || 0;
+                selectionTop = parseInt(selectionBox.style.top) || 0;
+                selectionWidth = parseInt(selectionBox.style.width) || 0;
+                selectionHeight = parseInt(selectionBox.style.height) || 0;
+                
+                debug(`Starting resize operation from: left=${selectionLeft}, top=${selectionTop}, width=${selectionWidth}, height=${selectionHeight}`);
+                
+                // Add document-level mousemove handler for resizing
+                document.addEventListener('mousemove', documentResizeHandler);
+            });
+        });
+        
+        // Handler for document mousemove to catch events during selection
+        function documentMouseMoveHandler(e) {
+            if (isSelecting && videoElement.src && isSelectionMode) {
+                const rect = videoElement.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                debug(`DOCUMENT MOUSEMOVE: (${currentX}, ${currentY}), isSelecting=${isSelecting}`);
+                
+                // Constrain to video boundaries
+                const constrainedX = Math.min(Math.max(0, currentX), rect.width);
+                const constrainedY = Math.min(Math.max(0, currentY), rect.height);
+                
+                // Calculate dimensions and position of selection box
+                const width = Math.max(1, Math.abs(constrainedX - startX));
+                const height = Math.max(1, Math.abs(constrainedY - startY));
+                const left = Math.min(startX, constrainedX);
+                const top = Math.min(startY, constrainedY);
+                
+                debug(`Doc calculated dimensions: left=${left}, top=${top}, width=${width}, height=${height}`);
+                
+                // Update selection box styling
+                selectionBox.style.left = left + 'px';
+                selectionBox.style.top = top + 'px';
+                selectionBox.style.width = width + 'px';
+                selectionBox.style.height = height + 'px';
+                
+                // Store the values
+                selectionLeft = left;
+                selectionTop = top;
+                selectionWidth = width;
+                selectionHeight = height;
+                
+                // Store this event for mouseup
+                lastMoveEvent = {
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                };
+                
+                updateCoordinates(left, top, width, height);
+            }
+        }
+        
+        // Handler for document mousemove during resize operations
+        function documentResizeHandler(e) {
+            if (isResizing && videoElement.src && isSelectionMode) {
+                e.preventDefault();
+                
+                const rect = videoElement.getBoundingClientRect();
+                const currentX = e.clientX - rect.left;
+                const currentY = e.clientY - rect.top;
+                
+                debug(`RESIZE MOVE: (${currentX}, ${currentY}), handle=${activeHandle.id}`);
+                
+                // Constrain to video boundaries
+                const constrainedX = Math.min(Math.max(0, currentX), rect.width);
+                const constrainedY = Math.min(Math.max(0, currentY), rect.height);
+                
+                let newLeft = selectionLeft;
+                let newTop = selectionTop;
+                let newWidth = selectionWidth;
+                let newHeight = selectionHeight;
+                
+                // Handle resizing based on which handle is active
+                switch (activeHandle) {
+                    case handleNW:
+                        // For NW handle, the bottom-right corner is fixed
+                        // and we adjust top-left position and dimensions
+                        newWidth = selectionLeft + selectionWidth - constrainedX;
+                        newHeight = selectionTop + selectionHeight - constrainedY;
+                        newLeft = constrainedX;
+                        newTop = constrainedY;
+                        break;
+                    case handleNE:
+                        // For NE handle, the bottom-left corner is fixed
+                        // We adjust width and top position
+                        newWidth = constrainedX - selectionLeft;
+                        newHeight = selectionTop + selectionHeight - constrainedY;
+                        newTop = constrainedY;
+                        break;
+                    case handleSW:
+                        // For SW handle, the top-right corner is fixed
+                        // We adjust width and left position
+                        newWidth = selectionLeft + selectionWidth - constrainedX;
+                        newHeight = constrainedY - selectionTop;
+                        newLeft = constrainedX;
+                        break;
+                    case handleSE:
+                        // For SE handle, the top-left corner is fixed
+                        // We just adjust width and height
+                        newWidth = constrainedX - selectionLeft;
+                        newHeight = constrainedY - selectionTop;
+                        break;
+                }
+                
+                // Ensure minimum size of 1px
+                if (newWidth < 1) {
+                    newWidth = 1;
+                    if (activeHandle === handleNW || activeHandle === handleSW) {
+                        newLeft = selectionLeft + selectionWidth - 1;
+                    }
+                }
+                
+                if (newHeight < 1) {
+                    newHeight = 1;
+                    if (activeHandle === handleNW || activeHandle === handleNE) {
+                        newTop = selectionTop + selectionHeight - 1;
+                    }
+                }
+                
+                debug(`New dimensions: left=${newLeft}, top=${newTop}, width=${newWidth}, height=${newHeight}`);
+                
+                // Update selection box styling
+                selectionBox.style.left = newLeft + 'px';
+                selectionBox.style.top = newTop + 'px';
+                selectionBox.style.width = newWidth + 'px';
+                selectionBox.style.height = newHeight + 'px';
+                
+                // Store the values
+                selectionLeft = newLeft;
+                selectionTop = newTop;
+                selectionWidth = newWidth;
+                selectionHeight = newHeight;
+                
+                updateCoordinates(newLeft, newTop, newWidth, newHeight);
+            }
+        }
+        
+        document.addEventListener('mouseup', function(e) {
+            debug("MOUSEUP on document");
+            
+            // Handle resizing end
+            if (isResizing) {
+                debug("Ending resize operation");
+                document.removeEventListener('mousemove', documentResizeHandler);
+                isResizing = false;
+                activeHandle = null;
+                debugState();
+            }
+            
+            // Handle selection end if mouse released outside overlay
+            if (isSelecting) {
+                debug(`Selection ended outside overlay after ${dragCounter} mousemove events`);
+                isSelecting = false;
+                
+                // Remove document mousemove handler
+                document.removeEventListener('mousemove', documentMouseMoveHandler);
+                
+                // Try to process the final position by simulating a mousemove on the overlay
+                if (lastMoveEvent) {
+                    debug("Processing final position from lastMoveEvent (document)");
+                    const event = new MouseEvent('mousemove', {
+                        clientX: lastMoveEvent.clientX,
+                        clientY: lastMoveEvent.clientY
+                    });
+                    selectionOverlay.dispatchEvent(event);
+                } else {
+                    debug("No lastMoveEvent to process (document)");
+                }
+                
+                debugState();
+            }
+        });
+        
+        function updateCoordinates(x, y, width, height) {
+            // Display values (what you see on screen)
+            displayPosition.textContent = `(${Math.round(x)}, ${Math.round(y)})`;
+            displayWidth.textContent = `${Math.round(width)}px`;
+            displayHeight.textContent = `${Math.round(height)}px`;
+            
+            // Convert to original video dimensions
+            if (videoElement.src && originalVideoWidth && originalVideoHeight) {
+                // Calculate scale factors based on the actual displayed video size
+                const videoDisplayWidth = videoElement.clientWidth;
+                const videoDisplayHeight = videoElement.clientHeight;
+                
+                // Ensure we're not dividing by zero
+                if (videoDisplayWidth > 0 && videoDisplayHeight > 0) {
+                    const scaleX = originalVideoWidth / videoDisplayWidth;
+                    const scaleY = originalVideoHeight / videoDisplayHeight;
+                    
+                    // Constrain selection to video dimensions
+                    const constrainedX = Math.min(Math.max(0, x), videoDisplayWidth);
+                    const constrainedY = Math.min(Math.max(0, y), videoDisplayHeight);
+                    
+                    // Constrain selection width/height
+                    const constrainedWidth = Math.min(width, videoDisplayWidth - constrainedX);
+                    const constrainedHeight = Math.min(height, videoDisplayHeight - constrainedY);
+                    
+                    // Calculate original coordinates
+                    const originalX = Math.round(constrainedX * scaleX);
+                    const originalY = Math.round(constrainedY * scaleY);
+                    const originalW = Math.round(constrainedWidth * scaleX);
+                    const originalH = Math.round(constrainedHeight * scaleY);
+                    
+                    // Update display
+                    originalPosition.textContent = `(${originalX}, ${originalY})`;
+                    originalWidth.textContent = `${originalW}px`;
+                    originalHeight.textContent = `${originalH}px`;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
