@@ -457,7 +457,7 @@
                     <button id="cancelEditTemplate" class="template-btn cancel-btn" style="display: none;">Cancel</button>
                 </div>
                 <div class="info-text">
-                    <small>Available variables: {left}, {top}, {width}, {height}</small>
+                    <small>Available variables: {left}, {top}, {width}, {height}, {right}, {bottom}, {leftRel}, {topRel}, {widthRel}, {heightRel}, {rightRel}, {bottomRel}</small>
                 </div>
             </div>
         </div>
@@ -993,22 +993,51 @@
             }
         });
         
+
+        // --- URL param parsing for template injection and future extensibility ---
+        function getUrlParams() {
+            const params = {};
+            const searchParams = new URLSearchParams(window.location.search);
+            for (const [key, value] of searchParams.entries()) {
+                params[key] = value;
+            }
+            return params;
+        }
+
         // Template system variables and functions
         let templates = [];
+        let urlTemplate = null;
         let currentSelectionValues = {
             left: 0,
             top: 0,
             width: 0,
-            height: 0
+            height: 0,
+            right: 0,
+            bottom: 0,
+            leftRel: 0,
+            topRel: 0,
+            widthRel: 0,
+            heightRel: 0,
+            rightRel: 0,
+            bottomRel: 0
         };
         
-        // Load saved templates on page load
+
+        // Load saved templates and check for URL template on page load
         function loadTemplates() {
+            // Check for URL params
+            const params = getUrlParams();
+            if (params.template) {
+                urlTemplate = {
+                    name: params.templateName || 'URL Template',
+                    content: params.template
+                };
+            }
             const savedTemplates = localStorage.getItem('video-select-area-templates');
             if (savedTemplates) {
                 templates = JSON.parse(savedTemplates);
-                renderTemplates();
             }
+            renderTemplates();
         }
         
         // Save templates to local storage
@@ -1022,74 +1051,108 @@
             while (templatesListDiv.firstChild) {
                 templatesListDiv.removeChild(templatesListDiv.firstChild);
             }
-            
-            if (templates.length === 0) {
+
+            // Show URL template if present
+            if (urlTemplate) {
+                const templateOutput = applyTemplate(urlTemplate.content);
+                const templateItem = document.createElement('div');
+                templateItem.className = 'template-item';
+                templateItem.style.border = '2px solid var(--primary-color)';
+                templateItem.style.background = 'var(--light-bg)';
+
+                // Header
+                const templateHeader = document.createElement('div');
+                templateHeader.className = 'template-header';
+                const templateName = document.createElement('span');
+                templateName.className = 'template-name';
+                templateName.textContent = urlTemplate.name + ' (from URL)';
+                templateHeader.appendChild(templateName);
+                templateItem.appendChild(templateHeader);
+
+                // Output row
+                const templateOutputRow = document.createElement('div');
+                templateOutputRow.className = 'template-output-row';
+                const outputDiv = document.createElement('div');
+                outputDiv.className = 'template-output';
+                outputDiv.textContent = templateOutput;
+                templateOutputRow.appendChild(outputDiv);
+                const copyButton = document.createElement('button');
+                copyButton.className = 'copy-btn';
+                copyButton.setAttribute('data-output', encodeURIComponent(templateOutput));
+                copyButton.textContent = 'Copy';
+                templateOutputRow.appendChild(copyButton);
+                templateItem.appendChild(templateOutputRow);
+
+                templatesListDiv.appendChild(templateItem);
+            }
+
+            if (templates.length === 0 && !urlTemplate) {
                 const noTemplatesMsg = document.createElement('p');
                 noTemplatesMsg.textContent = 'No templates yet. Create one below!';
                 templatesListDiv.appendChild(noTemplatesMsg);
                 return;
             }
-            
+
             templates.forEach((template, index) => {
                 const templateOutput = applyTemplate(template.content);
-                
+
                 const templateItem = document.createElement('div');
                 templateItem.className = 'template-item';
-                
+
                 // Create header
                 const templateHeader = document.createElement('div');
                 templateHeader.className = 'template-header';
-                
+
                 // Create name span
                 const templateName = document.createElement('span');
                 templateName.className = 'template-name';
                 templateName.textContent = template.name;
                 templateHeader.appendChild(templateName);
-                
+
                 // Create actions container
                 const templateActions = document.createElement('div');
                 templateActions.className = 'template-actions';
-                
+
                 // Create edit button
                 const editButton = document.createElement('button');
                 editButton.className = 'template-edit';
                 editButton.setAttribute('data-index', index);
                 editButton.textContent = 'Edit';
                 templateActions.appendChild(editButton);
-                
+
                 // Create delete button
                 const deleteButton = document.createElement('button');
                 deleteButton.className = 'template-delete';
                 deleteButton.setAttribute('data-index', index);
                 deleteButton.textContent = 'Delete';
                 templateActions.appendChild(deleteButton);
-                
+
                 templateHeader.appendChild(templateActions);
                 templateItem.appendChild(templateHeader);
-                
+
                 // Create output row
                 const templateOutputRow = document.createElement('div');
                 templateOutputRow.className = 'template-output-row';
-                
+
                 // Create output div - we use textContent to ensure XSS safety
                 // while still displaying the original template content
                 const outputDiv = document.createElement('div');
                 outputDiv.className = 'template-output';
                 outputDiv.textContent = templateOutput; // This displays the raw content safely
                 templateOutputRow.appendChild(outputDiv);
-                
+
                 // Create copy button - using encodeURIComponent to safely store the raw template output
                 const copyButton = document.createElement('button');
                 copyButton.className = 'copy-btn';
                 copyButton.setAttribute('data-output', encodeURIComponent(templateOutput));
                 copyButton.textContent = 'Copy';
                 templateOutputRow.appendChild(copyButton);
-                
+
                 templateItem.appendChild(templateOutputRow);
-                
+
                 templatesListDiv.appendChild(templateItem);
             });
-            
+
             // Add event listeners for delete buttons
             document.querySelectorAll('.template-delete').forEach(button => {
                 button.addEventListener('click', function() {
@@ -1099,30 +1162,30 @@
                     renderTemplates();
                 });
             });
-            
+
             // Add event listeners for edit buttons
             document.querySelectorAll('.template-edit').forEach(button => {
                 button.addEventListener('click', function() {
                     const index = parseInt(this.getAttribute('data-index'));
                     const template = templates[index];
-                    
+
                     // Populate form with template data - these are input elements so they're safe
                     templateNameInput.value = template.name;
                     templateContentInput.value = template.content;
-                    
+
                     // Change save button to update button
                     saveTemplateBtn.textContent = 'Update Template';
                     saveTemplateBtn.dataset.editIndex = index;
-                    
+
                     // Show cancel button
                     cancelEditBtn.style.display = 'inline-block';
-                    
+
                     // Scroll to the form
                     templateNameInput.scrollIntoView({ behavior: 'smooth' });
                     templateNameInput.focus();
                 });
             });
-            
+
             // Add event listeners for copy buttons
             document.querySelectorAll('.copy-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -1139,7 +1202,15 @@
                 .replace(/\{left\}/g, currentSelectionValues.left)
                 .replace(/\{top\}/g, currentSelectionValues.top)
                 .replace(/\{width\}/g, currentSelectionValues.width)
-                .replace(/\{height\}/g, currentSelectionValues.height);
+                .replace(/\{height\}/g, currentSelectionValues.height)
+                .replace(/\{right\}/g, currentSelectionValues.right)
+                .replace(/\{bottom\}/g, currentSelectionValues.bottom)
+                .replace(/\{leftRel\}/g, currentSelectionValues.leftRel)
+                .replace(/\{topRel\}/g, currentSelectionValues.topRel)
+                .replace(/\{widthRel\}/g, currentSelectionValues.widthRel)
+                .replace(/\{heightRel\}/g, currentSelectionValues.heightRel)
+                .replace(/\{rightRel\}/g, currentSelectionValues.rightRel)
+                .replace(/\{bottomRel\}/g, currentSelectionValues.bottomRel);
         }
         
         // Copy text to clipboard
@@ -1230,39 +1301,57 @@
                 // Calculate scale factors based on the actual displayed video size
                 const videoDisplayWidth = videoElement.clientWidth;
                 const videoDisplayHeight = videoElement.clientHeight;
-                
+
                 // Ensure we're not dividing by zero
                 if (videoDisplayWidth > 0 && videoDisplayHeight > 0) {
                     const scaleX = originalVideoWidth / videoDisplayWidth;
                     const scaleY = originalVideoHeight / videoDisplayHeight;
-                    
+
                     // Constrain selection to video dimensions
                     const constrainedX = Math.min(Math.max(0, x), videoDisplayWidth);
                     const constrainedY = Math.min(Math.max(0, y), videoDisplayHeight);
-                    
+
                     // Constrain selection width/height
                     const constrainedWidth = Math.min(width, videoDisplayWidth - constrainedX);
                     const constrainedHeight = Math.min(height, videoDisplayHeight - constrainedY);
-                    
-                    // Calculate original coordinates
+
+                    // Calculate original coordinates (absolute)
                     const originalX = Math.round(constrainedX * scaleX);
                     const originalY = Math.round(constrainedY * scaleY);
                     const originalW = Math.round(constrainedWidth * scaleX);
                     const originalH = Math.round(constrainedHeight * scaleY);
-                    
+                    const originalRight = originalVideoWidth - (originalX + originalW);
+                    const originalBottom = originalVideoHeight - (originalY + originalH);
+
+                    // Calculate relative coordinates (0..1)
+                    const leftRel = +(originalX / originalVideoWidth).toFixed(6);
+                    const topRel = +(originalY / originalVideoHeight).toFixed(6);
+                    const widthRel = +(originalW / originalVideoWidth).toFixed(6);
+                    const heightRel = +(originalH / originalVideoHeight).toFixed(6);
+                    const rightRel = +(originalRight / originalVideoWidth).toFixed(6);
+                    const bottomRel = +(originalBottom / originalVideoHeight).toFixed(6);
+
                     // Update display
                     originalPosition.textContent = `(${originalX}, ${originalY})`;
                     originalWidth.textContent = `${originalW}`;
                     originalHeight.textContent = `${originalH}`;
-                    
+
                     // Update current selection values for templates
                     currentSelectionValues = {
                         left: originalX,
                         top: originalY,
                         width: originalW,
-                        height: originalH
+                        height: originalH,
+                        right: originalRight,
+                        bottom: originalBottom,
+                        leftRel: leftRel,
+                        topRel: topRel,
+                        widthRel: widthRel,
+                        heightRel: heightRel,
+                        rightRel: rightRel,
+                        bottomRel: bottomRel
                     };
-                    
+
                     // Update all template outputs with new values
                     renderTemplates();
                 }
