@@ -95,12 +95,6 @@ selector.clearSelection();            // Remove selection
 selector.destroy();                   // Clean up (remove event listeners, etc.)
 ```
 
-## Installation
-
-```bash
-npm install video-area-selector
-```
-
 ## How to Use
 
 1. Open `index.html` in your web browser

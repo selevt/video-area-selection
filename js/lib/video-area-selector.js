@@ -568,6 +568,7 @@ export class VideoAreaSelector {
         this.options.enabled = true;
         this.selectionOverlay.style.display = 'block';
         document.addEventListener('mouseup', this._boundDocumentMouseUpHandler);
+        this.selectionBox.classList.remove('playback-mode');
         return this;
     }
     

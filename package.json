@@ -8,13 +8,15 @@
     ".": "./index.js",
     "./css": "./css/video-area-selector.css",
     "./theme": "./js/theme-handler.js",
-    "./templates": "./js/templates.js"
+    "./templates": "./js/templates.js",
+    "./format": "./js/template-formatter.js"
   },
   "files": [
     "index.js",
     "js/lib/video-area-selector.js",
     "js/theme-handler.js",
     "js/templates.js",
+    "js/template-formatter.js",
     "css/video-area-selector.css"
   ],
   "scripts": {
