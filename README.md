@@ -2,9 +2,6 @@
 
 A lightweight web application that allows you to select and extract specific regions of a video. Perfect for creating cropped video clips, extracting coordinates for video processing, or preparing video regions for other applications.
 
-> [!NOTE]
-> This project was created with the assistance of AI tools. The code may not follow best practices and could contain suboptimal solutions.
-
 ![Video Area Selection Tool](screenshot.png)
 
 ## Features
@@ -19,11 +16,10 @@ A lightweight web application that allows you to select and extract specific reg
 
 ## Project Structure
 
-The project has been refactored to separate concerns:
-
 ```
 video-select-area/
 ├── index.html                      # Main application 
+├── index.js                        # ES module entry point
 ├── css/
 │   ├── styles.css                  # Main application styles
 │   └── video-area-selector.css     # Core library styles
@@ -38,47 +34,71 @@ video-select-area/
 
 ## Using the Core Library
 
-You can use the core video area selection functionality in your own projects:
+```javascript
+// Using ES modules
+import { VideoAreaSelector } from 'video-area-selector';
+import ThemeHandler from 'video-area-selector/theme';
+import TemplateManager from 'video-area-selector/templates';
 
-```html
-<!-- Include the core library styles -->
-<link rel="stylesheet" href="path/to/video-area-selector.css">
+// Initialize the video area selector
+const videoElement = document.getElementById('myVideo');
+const selector = new VideoAreaSelector({
+    videoElement: videoElement,
+    onChange: (selectionData) => {
+        console.log('Selection changed:', selectionData);
+        // selectionData contains both absolute and relative coordinates
+    }
+});
 
-<!-- Your video element -->
-<div id="myVideoContainer">
-    <video id="myVideo" src="video.mp4" controls></video>
-</div>
+// Enable selection mode
+selector.enable();
 
-<!-- Include the core library script -->
-<script src="path/to/video-area-selector.js"></script>
-<script>
-    // Initialize the video area selector
-    const videoElement = document.getElementById('myVideo');
-    const selector = new VideoAreaSelector({
-        videoElement: videoElement,
-        onChange: (selectionData) => {
-            console.log('Selection changed:', selectionData);
-            // selectionData contains both absolute and relative coordinates
-        }
-    });
+// Initialize theme handler (optional)
+const themeHandler = new ThemeHandler({
+    storageKey: 'my-app-theme',
+    toggleElement: document.querySelector('.theme-switch input[type="checkbox"]')
+});
 
-    // Enable selection mode
-    selector.enable();
-    
-    // Later, you can disable it
-    // selector.disable();
-    
-    // Get the current selection programmatically
-    const selection = selector.getSelection();
-    
-    // Set a selection programmatically
-    selector.setSelection({
-        left: 100,
-        top: 50,
-        width: 320,
-        height: 240
-    });
-</script>
+// Initialize template manager (optional)
+const templateManager = new TemplateManager({
+    storageKey: 'my-app-templates',
+    templateListContainer: document.getElementById('templatesList')
+});
+
+// Update templates with selection data
+templateManager.updateSelectionValues(selector.getSelection());
+```
+
+## API Reference
+
+```typescript
+// Create a new VideoAreaSelector instance
+const selector = new VideoAreaSelector({
+    videoElement: HTMLVideoElement,   // Required
+    onChange: Function,               // Optional callback when selection changes
+    selectionColor: String,           // Optional CSS color
+    selectionBorder: String,          // Optional CSS color
+    enabled: Boolean                  // Optional, default: false
+});
+
+// Methods
+selector.enable();                    // Enable selection mode
+selector.disable();                   // Disable selection mode
+const data = selector.getSelection(); // Get current selection data
+selector.setSelection({               // Set selection programmatically
+    left: Number,                     // Left position in original video dimensions
+    top: Number,                      // Top position
+    width: Number,                    // Width
+    height: Number                    // Height
+});
+selector.clearSelection();            // Remove selection
+selector.destroy();                   // Clean up (remove event listeners, etc.)
+```
+
+## Installation
+
+```bash
+npm install video-area-selector
 ```
 
 ## How to Use
@@ -115,10 +135,6 @@ Example templates:
 - CSS: `left: {left}px; top: {top}px; width: {width}px; height: {height}px;`
 - JSON: `{"x": {left}, "y": {top}, "width": {width}, "height": {height}}`
 - ffmpeg crop: `crop={width}:{height}:{left}:{top}`
-
-## Contributing
-
-Feel free to fork this project and submit pull requests for any improvements you make.
 
 ## License
 

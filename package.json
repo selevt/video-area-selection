@@ -1,0 +1,31 @@
+{
+  "name": "video-area-selector",
+  "version": "1.0.0",
+  "description": "A library for selecting rectangular areas in videos",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./css": "./css/video-area-selector.css",
+    "./theme": "./js/theme-handler.js",
+    "./templates": "./js/templates.js"
+  },
+  "files": [
+    "index.js",
+    "js/lib/video-area-selector.js",
+    "js/theme-handler.js",
+    "js/templates.js",
+    "css/video-area-selector.css"
+  ],
+  "scripts": {
+  },
+  "keywords": [
+    "video",
+    "selector",
+    "area",
+    "rectangle",
+    "crop"
+  ],
+  "author": "selevt",
+  "license": "MIT"
+}

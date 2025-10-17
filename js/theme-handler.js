@@ -1,7 +1,7 @@
 /**
  * ThemeHandler - Manages light/dark mode theme for the application
  */
-class ThemeHandler {
+export class ThemeHandler {
     /**
      * Create a new theme handler
      * @param {Object} options - Configuration options
@@ -126,10 +126,5 @@ class ThemeHandler {
     }
 }
 
-// Check if we're in a module environment
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = ThemeHandler;
-} else {
-    // Otherwise, make it available in the global scope
-    window.ThemeHandler = ThemeHandler;
-}
+// Export default for ES modules
+export default ThemeHandler;

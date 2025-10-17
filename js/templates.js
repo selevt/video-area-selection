@@ -1,7 +1,7 @@
 /**
  * TemplateManager - Manages templates for formatting selection coordinates
  */
-class TemplateManager {
+export class TemplateManager {
     /**
      * Create a new template manager
      * @param {Object} options - Configuration options
@@ -467,10 +467,5 @@ class TemplateManager {
     }
 }
 
-// Check if we're in a module environment
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = TemplateManager;
-} else {
-    // Otherwise, make it available in the global scope
-    window.TemplateManager = TemplateManager;
-}
+// Export default for ES modules
+export default TemplateManager;

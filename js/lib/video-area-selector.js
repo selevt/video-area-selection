@@ -1,7 +1,7 @@
 /**
  * VideoAreaSelector - A library for selecting rectangular areas in videos
  */
-class VideoAreaSelector {
+export class VideoAreaSelector {
     /**
      * Create a new video area selector
      * @param {Object} options - Configuration options
@@ -736,10 +736,5 @@ class VideoAreaSelector {
     }
 }
 
-// Check if we're in a module environment
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = VideoAreaSelector;
-} else {
-    // Otherwise, make it available in the global scope
-    window.VideoAreaSelector = VideoAreaSelector;
-}
+// Default export for easier importing
+export default VideoAreaSelector;

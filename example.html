@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Area Selector Example</title>
+    <link rel="stylesheet" href="./css/video-area-selector.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .video-container {
+            margin-bottom: 20px;
+        }
+        .selection-info {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Video Area Selector Example</h1>
+    
+    <div class="video-container">
+        <video id="myVideo" src="https://dl11.webmfiles.org/big-buck-bunny_trailer-.webm" controls></video>
+    </div>
+    
+    <div class="controls">
+        <button id="enableBtn">Enable Selection</button>
+        <button id="disableBtn">Disable Selection</button>
+        <button id="clearBtn">Clear Selection</button>
+    </div>
+    
+    <div class="selection-info">
+        <h3>Selection Coordinates</h3>
+        <pre id="coordinates">No selection yet</pre>
+    </div>
+    
+    <script type="module">
+        // Import the VideoAreaSelector from the library
+        import { VideoAreaSelector } from './js/index.js';
+        
+        // Get DOM elements
+        const videoElement = document.getElementById('myVideo');
+        const enableBtn = document.getElementById('enableBtn');
+        const disableBtn = document.getElementById('disableBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const coordinatesDisplay = document.getElementById('coordinates');
+        
+        // Create selector instance
+        const selector = new VideoAreaSelector({
+            videoElement: videoElement,
+            onChange: (data) => {
+                // Update the coordinates display
+                coordinatesDisplay.textContent = JSON.stringify(data, null, 2);
+            }
+        });
+        
+        // Add button event listeners
+        enableBtn.addEventListener('click', () => {
+            selector.enable();
+        });
+        
+        disableBtn.addEventListener('click', () => {
+            selector.disable();
+        });
+        
+        clearBtn.addEventListener('click', () => {
+            selector.clearSelection();
+            coordinatesDisplay.textContent = 'No selection';
+        });
+    </script>
+</body>
+</html>
