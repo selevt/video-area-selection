@@ -23,6 +23,9 @@
 
 .selection-box {
     position: absolute;
+    /* Include border in size calculations. So the box including border is the specified size. */
+    /* The area under the border is therefore included in the selected dimensions. */
+    box-sizing: border-box;
     border: 2px solid var(--selection-border, red); /* Can be overridden via JS options */
     background-color: var(--selection-color, rgba(255, 0, 0, 0.2)); /* Can be overridden via JS options */
     display: none;
