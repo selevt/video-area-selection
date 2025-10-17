@@ -15,6 +15,71 @@ A lightweight web application that allows you to select and extract specific reg
 - **Dark/Light Mode**: Comfortable viewing in any environment
 - **Keyboard Controls**: Efficient video navigation with keyboard shortcuts
 - **No Server Required**: Works entirely in your browser without uploading videos
+- **Modular Design**: Core functionality available as a reusable library
+
+## Project Structure
+
+The project has been refactored to separate concerns:
+
+```
+video-select-area/
+├── index.html                      # Main application 
+├── css/
+│   ├── styles.css                  # Main application styles
+│   └── video-area-selector.css     # Core library styles
+├── js/
+│   ├── app.js                      # Main application logic
+│   ├── templates.js                # Template system logic
+│   ├── theme-handler.js            # Theme handling logic
+│   └── lib/
+│       └── video-area-selector.js  # Core reusable library
+└── README.md
+```
+
+## Using the Core Library
+
+You can use the core video area selection functionality in your own projects:
+
+```html
+<!-- Include the core library styles -->
+<link rel="stylesheet" href="path/to/video-area-selector.css">
+
+<!-- Your video element -->
+<div id="myVideoContainer">
+    <video id="myVideo" src="video.mp4" controls></video>
+</div>
+
+<!-- Include the core library script -->
+<script src="path/to/video-area-selector.js"></script>
+<script>
+    // Initialize the video area selector
+    const videoElement = document.getElementById('myVideo');
+    const selector = new VideoAreaSelector({
+        videoElement: videoElement,
+        onChange: (selectionData) => {
+            console.log('Selection changed:', selectionData);
+            // selectionData contains both absolute and relative coordinates
+        }
+    });
+
+    // Enable selection mode
+    selector.enable();
+    
+    // Later, you can disable it
+    // selector.disable();
+    
+    // Get the current selection programmatically
+    const selection = selector.getSelection();
+    
+    // Set a selection programmatically
+    selector.setSelection({
+        left: 100,
+        top: 50,
+        width: 320,
+        height: 240
+    });
+</script>
+```
 
 ## How to Use
 
@@ -42,6 +107,9 @@ Available variables:
 - `{top}` - Top position of selection
 - `{width}` - Width of selection
 - `{height}` - Height of selection
+- `{right}` - Right margin
+- `{bottom}` - Bottom margin
+- `{leftRel}`, `{topRel}`, `{widthRel}`, `{heightRel}`, `{rightRel}`, `{bottomRel}` - Relative values (0-1)
 
 Example templates:
 - CSS: `left: {left}px; top: {top}px; width: {width}px; height: {height}px;`
