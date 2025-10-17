@@ -40,6 +40,12 @@ export declare class VideoAreaSelector {
   setSelection(selection: VideoAreaSelection): VideoAreaSelector;
   clearSelection(): VideoAreaSelector;
   destroy(): void;
+  
+  /**
+   * Returns a promise that resolves when the video dimensions are available
+   * @returns A promise that resolves with {width, height} when dimensions are available
+   */
+  ready(): Promise<{width: number, height: number}>;
 }
 
 export default VideoAreaSelector;

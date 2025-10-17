@@ -42,6 +42,11 @@ export class VideoAreaSelector {
         this.selectionHeight = 0;
         this.lastMoveEvent = null;
 
+        // Create Promise for video dimensions
+        this._dimensionsReady = new Promise((resolve) => {
+            this._resolveDimensions = resolve;
+        });
+
         // Create DOM elements
         this._createElements();
 
@@ -54,17 +59,30 @@ export class VideoAreaSelector {
         this._boundDocumentResizeHandler = this._documentResizeHandler.bind(this);
         this._boundWindowResizeHandler = this._updateSelectionOverlaySize.bind(this);
 
-        // Set video dimensions immediately
+        // Set video dimensions immediately if available
         this.originalVideoWidth = this.videoElement.videoWidth;
         this.originalVideoHeight = this.videoElement.videoHeight;
         
-        // Add a fallback listener in case dimensions aren't available immediately
-        if (this.originalVideoWidth === 0 || this.originalVideoHeight === 0) {
-            // For videos that are already loaded but dimensions not yet accessible
+        // Check if dimensions are already available
+        if (this.originalVideoWidth > 0 && this.originalVideoHeight > 0) {
+            // Resolve dimensions immediately
+            this._resolveDimensions({
+                width: this.originalVideoWidth,
+                height: this.originalVideoHeight
+            });
+        } else {
+            // Add a fallback listener in case dimensions aren't available immediately
             if (this.videoElement.readyState >= 1) {
                 setTimeout(() => {
                     this.originalVideoWidth = this.videoElement.videoWidth;
                     this.originalVideoHeight = this.videoElement.videoHeight;
+                    
+                    if (this.originalVideoWidth > 0 && this.originalVideoHeight > 0) {
+                        this._resolveDimensions({
+                            width: this.originalVideoWidth,
+                            height: this.originalVideoHeight
+                        });
+                    }
                 }, 100);
             }
             
@@ -72,6 +90,13 @@ export class VideoAreaSelector {
                 this.originalVideoWidth = this.videoElement.videoWidth;
                 this.originalVideoHeight = this.videoElement.videoHeight;
                 this._updateSelectionOverlaySize();
+                
+                if (this.originalVideoWidth > 0 && this.originalVideoHeight > 0) {
+                    this._resolveDimensions({
+                        width: this.originalVideoWidth,
+                        height: this.originalVideoHeight
+                    });
+                }
             });
         }
 
@@ -707,6 +732,14 @@ export class VideoAreaSelector {
         }
         
         return this;
+    }
+    
+    /**
+     * Returns a promise that resolves when the video dimensions are available
+     * @returns {Promise<Object>} - A promise that resolves with {width, height} when dimensions are available
+     */
+    ready() {
+        return this._dimensionsReady;
     }
     
     /**
