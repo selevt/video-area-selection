@@ -4,6 +4,7 @@ export interface VideoAreaSelectorOptions {
   selectionColor?: string;
   selectionBorder?: string;
   enabled?: boolean;
+  resizeDebounce?: number;
 }
 
 export interface VideoAreaSelectionCoordinates {

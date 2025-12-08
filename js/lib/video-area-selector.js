@@ -22,6 +22,7 @@ export class VideoAreaSelector {
             selectionColor: 'rgba(255, 0, 0, 0.2)',
             selectionBorder: 'red',
             enabled: false,
+            resizeDebounce: 0,
             ...options
         };
 
@@ -41,6 +42,7 @@ export class VideoAreaSelector {
         this.selectionWidth = 0;
         this.selectionHeight = 0;
         this.lastMoveEvent = null;
+        this.currentSelection = null;
 
         // Create Promise for video dimensions
         this._dimensionsReady = new Promise((resolve) => {
@@ -50,6 +52,10 @@ export class VideoAreaSelector {
         // Create DOM elements
         this._createElements();
 
+        // Setup ResizeObserver
+        this.resizeObserver = new ResizeObserver(this._handleResize.bind(this));
+        this.resizeObserver.observe(this.videoElement);
+
         // Attach initial event listeners
         this._attachEventListeners();
 
@@ -57,7 +63,6 @@ export class VideoAreaSelector {
         this._boundDocumentMouseMoveHandler = this._documentMouseMoveHandler.bind(this);
         this._boundDocumentMouseUpHandler = this._documentMouseUpHandler.bind(this);
         this._boundDocumentResizeHandler = this._documentResizeHandler.bind(this);
-        this._boundWindowResizeHandler = this._updateSelectionOverlaySize.bind(this);
 
         // Set video dimensions immediately if available
         this.originalVideoWidth = this.videoElement.videoWidth;
@@ -89,7 +94,6 @@ export class VideoAreaSelector {
             this.videoElement.addEventListener('loadedmetadata', () => {
                 this.originalVideoWidth = this.videoElement.videoWidth;
                 this.originalVideoHeight = this.videoElement.videoHeight;
-                this._updateSelectionOverlaySize();
                 
                 if (this.originalVideoWidth > 0 && this.originalVideoHeight > 0) {
                     this._resolveDimensions({
@@ -176,9 +180,6 @@ export class VideoAreaSelector {
         [this.handleNW, this.handleNE, this.handleSW, this.handleSE].forEach(handle => {
             handle.addEventListener('mousedown', this._handleResizeStart.bind(this));
         });
-
-        // Window resize event
-        window.addEventListener('resize', this._boundWindowResizeHandler);
 
         // Document-level handlers are attached dynamically when needed
     }
@@ -498,12 +499,16 @@ export class VideoAreaSelector {
     }
 
     /**
-     * Update selection overlay size when video or window size changes
+     * Handle resize events from ResizeObserver
      * @private
      */
-    _updateSelectionOverlaySize() {
-        // Since we're using a layout that automatically sizes the overlay
-        // with the video, we don't need to manually set dimensions.
+    _handleResize() {
+        if (this.options.resizeDebounce > 0) {
+            if (this._resizeTimeout) clearTimeout(this._resizeTimeout);
+            this._resizeTimeout = setTimeout(() => this._performResizeUpdate(), this.options.resizeDebounce);
+        } else {
+            this._performResizeUpdate();
+        }
     }
 
     /**
@@ -547,6 +552,14 @@ export class VideoAreaSelector {
                 const originalH = Math.round(constrainedHeight * scaleY);
                 const originalRight = this.originalVideoWidth - (originalX + originalW);
                 const originalBottom = this.originalVideoHeight - (originalY + originalH);
+
+                // Store current selection in original video coordinates
+                this.currentSelection = {
+                    left: originalX,
+                    top: originalY,
+                    width: originalW,
+                    height: originalH
+                };
 
                 // Calculate relative coordinates (0..1)
                 const leftRel = +(originalX / this.originalVideoWidth).toFixed(6);
@@ -710,24 +723,8 @@ export class VideoAreaSelector {
                 const scaleX = videoDisplayWidth / this.originalVideoWidth;
                 const scaleY = videoDisplayHeight / this.originalVideoHeight;
 
-                // Convert to display dimensions
-                const displayLeft = Math.round(left * scaleX);
-                const displayTop = Math.round(top * scaleY);
-                const displayWidth = Math.round(width * scaleX);
-                const displayHeight = Math.round(height * scaleY);
-
-                // Update selection box
-                this.selectionBox.style.left = displayLeft + 'px';
-                this.selectionBox.style.top = displayTop + 'px';
-                this.selectionBox.style.width = displayWidth + 'px';
-                this.selectionBox.style.height = displayHeight + 'px';
+                this._updateSelectionRender({ left, top, width, height }, scaleX, scaleY);
                 this.selectionBox.style.display = 'block';
-
-                // Store values
-                this.selectionLeft = displayLeft;
-                this.selectionTop = displayTop;
-                this.selectionWidth = displayWidth;
-                this.selectionHeight = displayHeight;
 
                 // Update coordinates
                 this._updateCoordinates(displayLeft, displayTop, displayWidth, displayHeight);
@@ -735,6 +732,44 @@ export class VideoAreaSelector {
         }
         
         return this;
+    }
+
+    /**
+     * Perform the actual update of selection box on resize
+     * @private
+     */
+    _performResizeUpdate() {
+        if (!this.currentSelection || !this.videoElement.src) return;
+
+        const videoDisplayWidth = this.videoElement.clientWidth;
+        const videoDisplayHeight = this.videoElement.clientHeight;
+
+        if (videoDisplayWidth > 0 && videoDisplayHeight > 0 && this.originalVideoWidth > 0 && this.originalVideoHeight > 0) {
+            const scaleX = videoDisplayWidth / this.originalVideoWidth;
+            const scaleY = videoDisplayHeight / this.originalVideoHeight;
+
+            this._updateSelectionRender(this.currentSelection, scaleX, scaleY);
+        }
+    }
+
+    _updateSelectionRender(selectionDimensions, scaleX, scaleY) {
+        // Convert to display dimensions
+        const displayLeft = Math.round(selectionDimensions.left * scaleX);
+        const displayTop = Math.round(selectionDimensions.top * scaleY);
+        const displayWidth = Math.round(selectionDimensions.width * scaleX);
+        const displayHeight = Math.round(selectionDimensions.height * scaleY);
+
+        // Update selection box
+        this.selectionBox.style.left = displayLeft + 'px';
+        this.selectionBox.style.top = displayTop + 'px';
+        this.selectionBox.style.width = displayWidth + 'px';
+        this.selectionBox.style.height = displayHeight + 'px';
+
+        // Update internal state
+        this.selectionLeft = displayLeft;
+        this.selectionTop = displayTop;
+        this.selectionWidth = displayWidth;
+        this.selectionHeight = displayHeight;
     }
     
     /**
@@ -759,7 +794,12 @@ export class VideoAreaSelector {
      */
     destroy() {
         // Remove event listeners
-        window.removeEventListener('resize', this._boundWindowResizeHandler);
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+        if (this._resizeTimeout) {
+            clearTimeout(this._resizeTimeout);
+        }
         document.removeEventListener('mousemove', this._boundDocumentMouseMoveHandler);
         document.removeEventListener('mouseup', this._boundDocumentMouseUpHandler);
         document.removeEventListener('mousemove', this._boundDocumentResizeHandler);
