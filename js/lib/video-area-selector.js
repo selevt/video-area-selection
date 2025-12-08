@@ -123,6 +123,9 @@ export class VideoAreaSelector {
         // Setup selection box
         this.selectionBox = document.createElement('div');
         this.selectionBox.className = 'selection-box';
+        if (!this.options?.enabled) {
+            this.selectionBox.classList.add('playback-mode');
+        }
         this.selectionBox.id = 'selectionBox';
 
         // Add resize handles
