@@ -723,7 +723,9 @@ export class VideoAreaSelector {
                 const scaleX = videoDisplayWidth / this.originalVideoWidth;
                 const scaleY = videoDisplayHeight / this.originalVideoHeight;
 
-                this._updateSelectionRender({ left, top, width, height }, scaleX, scaleY);
+                const {
+                    displayLeft, displayTop, displayWidth, displayHeight
+                } = this._updateSelectionRender({ left, top, width, height }, scaleX, scaleY);
                 this.selectionBox.style.display = 'block';
 
                 // Update coordinates
@@ -770,6 +772,8 @@ export class VideoAreaSelector {
         this.selectionTop = displayTop;
         this.selectionWidth = displayWidth;
         this.selectionHeight = displayHeight;
+
+        return { displayLeft, displayTop, displayWidth, displayHeight };
     }
     
     /**
