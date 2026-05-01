@@ -815,6 +815,27 @@ export class VideoAreaSelector {
             this.videoWrapper.parentNode.removeChild(this.videoWrapper);
         }
     }
+
+    // Timeline API methods
+
+    /**
+     * Set current playback time in seconds
+     * @param {number} time - Time in seconds
+     */
+    setCurrentTime(time) {
+        this.videoElement.currentTime = time;
+    }
+
+    /**
+     * Subscribe to time update events
+     * @param {Function} callback - Callback function receiving current time in seconds
+     * @returns {Function} Unsubscribe function
+     */
+    onTimeUpdate(callback) {
+        const wrappedCallback = () => callback(this.videoElement.currentTime);
+        this.videoElement.addEventListener('timeupdate', wrappedCallback);
+        return () => this.videoElement.removeEventListener('timeupdate', wrappedCallback);
+    }
 }
 
 // Default export for easier importing

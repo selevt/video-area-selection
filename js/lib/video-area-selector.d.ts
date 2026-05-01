@@ -47,6 +47,10 @@ export declare class VideoAreaSelector {
    * @returns A promise that resolves with {width, height} when dimensions are available
    */
   ready(): Promise<{width: number, height: number}>;
+
+  // Timeline API methods
+  setCurrentTime(time: number): void;
+  onTimeUpdate(callback: (time: number) => void): () => void;
 }
 
 export default VideoAreaSelector;
